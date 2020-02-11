@@ -1,143 +1,215 @@
 import numpy as np
 import utils
+import typing
 np.random.seed(1)
 
-def pre_process_images(X: np.ndarray):
+def sigmoid(z):
+    """The sigmoid function."""
+    return 1.0/(1.0+np.exp(-z))
+
+
+def sigmoid_prime(z):
+    """Derivative of the sigmoid function."""
+    return sigmoid(z)*(1-sigmoid(z))
+
+def pre_process_images(X: np.ndarray, mu, sigma):
     """
     Args:
         X: images of shape [batch size, 784] in the range (0, 255)
+        mu: mean of whole training set
+        sigma: standard deviation of whole training set
     Returns:
-        X: images of shape [batch size, 785] in the range (0, 1)
+        X: images of shape [batch size, 785]
     """
     assert X.shape[1] == 784,\
         f"X.shape[1]: {X.shape[1]}, should be 784"
 
-    # normalize the entries
-    X = X/255
-    
+    # normalize input
+    X = (X-mu)/sigma
+
     # apply bias trick
-    X_with_bias = np.zeros((X.shape[0], X.shape[1]+1))
-    X_with_bias[:,:-1] = X
-    X_with_bias[:,-1] = 1  # can we just set it to 1 at the beginning?
+    X_with_bias = np.zeros((X.shape[0], X.shape[1] + 1))
+    X_with_bias[:, :-1] = X
+    X_with_bias[:, -1] = 1  # can we just set it to 1 at the beginning?
 
     X = X_with_bias
-
     return X
 
 
-def cross_entropy_loss(targets: np.ndarray, outputs: np.ndarray) -> float:
+def cross_entropy_loss(targets: np.ndarray, outputs: np.ndarray):
     """
     Args:
-        targets: labels/targets of each image of shape: [batch size, 1]
-        outputs: outputs of model of shape: [batch size, 1]
+        targets: labels/targets of each image of shape: [batch size, num_classes]
+        outputs: outputs of model of shape: [batch size, num_classes]
     Returns:
         Cross entropy error (float)
     """
     assert targets.shape == outputs.shape,\
         f"Targets shape: {targets.shape}, outputs: {outputs.shape}"
 
-    C = - (1/len(outputs)) * np.sum(targets * np.log(outputs) + (1 - targets) * np.log(1 - outputs))
+    L = - np.mean(np.sum(targets* np.log(outputs), axis = 1))
 
-    return C
+    return L
 
 
-class BinaryModel:
+class SoftmaxModel:
 
-    def __init__(self, l2_reg_lambda: float, input_nodes: int):
+    def __init__(self,
+                 # Number of neurons per layer
+                 neurons_per_layer: typing.List[int],
+                 use_improved_sigmoid: bool,  # Task 3a hyperparameter
+                 use_improved_weight_init: bool,  # Task 3c hyperparameter
+                 ):
         # Define number of input nodes
-        self.I = input_nodes
-        self.w = np.zeros((self.I, 1))
-        self.grad = None
+        self.I = 784
+        self.use_improved_sigmoid = use_improved_sigmoid
 
-        # Hyperparameter for task 3
-        self.l2_reg_lambda = l2_reg_lambda
-    
+        # Define number of output nodes
+        # neurons_per_layer = [64, 10] indicates that we will have two layers:
+        # A hidden layer with 64 neurons and a output layer with 10 neurons.
+        self.neurons_per_layer = neurons_per_layer
+
+        # Initialize the weights
+        self.ws = []
+        prev = self.I + 1
+        for size in self.neurons_per_layer:
+            w_shape = (prev, size)
+            print("Initializing weight to shape:", w_shape)
+            w = np.random.uniform(low=-1, high=1, size=w_shape )
+            self.ws.append(w)
+            prev = size
+        self.grads = [None for i in range(len(self.ws))]
+
     def forward(self, X: np.ndarray) -> np.ndarray:
         """
         Args:
             X: images of shape [batch size, 785]
         Returns:
-            y: output of model with shape [batch size, 1]
+            y: output of model with shape [batch size, num_outputs]
         """
-        z = X.dot(self.w)
-        y = 1/(1 + np.exp(-z))
+        y = X
+        global ys
+        ys = [X]  # list to store all the activations, layer by layer
+        global zs
+        zs = []  # list to store all the z vectors, layer by layer
+        i = 1
+        for w in self.ws:
+            z = y.dot(w)
+            zs.append(z)
+            if i == 1:
+                y = sigmoid(z)
+            else:
+                y = np.exp(z) / np.sum(np.exp(z), axis=1, keepdims=True)
+            ys.append(y)
+            i += 1
 
         return y
 
-    def backward(self, X: np.ndarray, outputs: np.ndarray, targets: np.ndarray) -> None:
+    def backward(self, X: np.ndarray, outputs: np.ndarray,
+                 targets: np.ndarray) -> None:
         """
         Args:
             X: images of shape [batch size, 785]
-            outputs: outputs of model of shape: [batch size, 1]
-            targets: labels/targets of each image of shape: [batch size, 1]
+            outputs: outputs of model of shape: [batch size, num_outputs]
+            targets: labels/targets of each image of shape: [batch size, num_classes]
         """
         assert targets.shape == outputs.shape,\
             f"Output shape: {outputs.shape}, targets: {targets.shape}"
-        self.grad = np.zeros_like(self.w)
-        assert self.grad.shape == self.w.shape,\
-            f"Grad shape: {self.grad.shape}, w: {self.w.shape}"
+        # A list of gradients.
+        # For example, self.grads[0] will be the gradient for the first hidden layer
+        self.grads = []
 
-        self.grad = - (targets - outputs) * X
+        # Output layer backpropagation
+        delta_k = outputs - targets
+        dC_dw2 = np.dot(np.transpose(ys[1]),delta_k) / len(X)  # test klappt nur mit dem / len(X) aber stimmt das?
 
-        # mini-batch gradient descent
-        self.grad = (1/len(self.grad)) * np.sum(self.grad, axis=0)
-        self.grad = self.grad.reshape((self.grad.shape[0],1)) # to make it to a column vector
-        self.grad += 2 * self.l2_reg_lambda * self.w # regularization
+        # Hidden layer backpropagation
+        delta_j =  sigmoid_prime(zs[0]) * np.dot(delta_k, np.transpose(self.ws[1]))
+        dC_dw1 = np.dot(np.transpose(X), delta_j) / len(X) # test klappt nur mit dem / len(X) aber stimmt das?
 
+        self.grads.append(dC_dw1)
+        self.grads.append(dC_dw2)
 
-
-
-
+        for grad, w in zip(self.grads, self.ws):
+            assert grad.shape == w.shape,\
+                f"Expected the same shape. Grad shape: {grad.shape}, w: {w.shape}."
 
     def zero_grad(self) -> None:
-        self.grad = None
+        self.grads = [None for i in range(len(self.ws))]
 
 
-def gradient_approximation_test(model: BinaryModel, X: np.ndarray, Y: np.ndarray):
+def one_hot_encode(Y: np.ndarray, num_classes: int):
+    """
+    Args:
+        Y: shape [Num examples, 1]
+        num_classes: Number of classes to use for one-hot encoding
+    Returns:
+        Y: shape [Num examples, num classes]
+    """
+    Y_encoded = np.zeros((Y.shape[0], num_classes))
+    Y_encoded[range(len(Y)), Y.squeeze()] = 1
+
+    return Y_encoded
+
+
+def gradient_approximation_test(
+        model: SoftmaxModel, X: np.ndarray, Y: np.ndarray):
     """
         Numerical approximation for gradients. Should not be edited. 
         Details about this test is given in the appendix in the assignment.
     """
-    w_orig = model.w.copy()
-    epsilon = 10e-2
-    for i in range(w_orig.shape[0]):
-        orig = model.w[i].copy()
-        model.w[i] = orig + epsilon
-        logits = model.forward(X)
-        cost1 = cross_entropy_loss(Y, logits)
-        model.w[i] = orig - epsilon
-        logits = model.forward(X)
-        cost2 = cross_entropy_loss(Y, logits)
-        gradient_approximation = (cost1 - cost2) / (2 * epsilon)
-        model.w[i] = orig
-        # Actual gradient
-        logits = model.forward(X)
-        model.backward(X, logits, Y)
-        difference = gradient_approximation - model.grad[i,0]
-        assert abs(difference) <= epsilon**2,\
-            f"Calculated gradient is incorrect. " \
-            f"Approximation: {gradient_approximation}, actual gradient: {model.grad[i,0]}\n" \
-            f"If this test fails there could be errors in your cross entropy loss function, " \
-            f"forward function or backward function"
+    epsilon = 1e-3
+    for layer_idx, w in enumerate(model.ws):
+        for i in range(w.shape[0]):
+            for j in range(w.shape[1]):
+                orig = model.ws[layer_idx][i, j].copy()
+                model.ws[layer_idx][i, j] = orig + epsilon
+                logits = model.forward(X)
+                cost1 = cross_entropy_loss(Y, logits)
+                model.ws[layer_idx][i, j] = orig - epsilon
+                logits = model.forward(X)
+                cost2 = cross_entropy_loss(Y, logits)
+                gradient_approximation = (cost1 - cost2) / (2 * epsilon)
+                model.ws[layer_idx][i, j] = orig
+                # Actual gradient
+                logits = model.forward(X)
+                model.backward(X, logits, Y)
+                difference = gradient_approximation - \
+                    model.grads[layer_idx][i, j]
+                assert abs(difference) <= epsilon**2,\
+                    f"Calculated gradient is incorrect. " \
+                    f"Layer IDX = {layer_idx}, i={i}, j={j}.\n" \
+                    f"Approximation: {gradient_approximation}, actual gradient: {model.grads[layer_idx][i, j]}\n" \
+                    f"If this test fails there could be errors in your cross entropy loss function, " \
+                    f"forward function or backward function"
 
 
 if __name__ == "__main__":
-    category1, category2 = 2, 3
-    X_train, Y_train, *_ = utils.load_binary_dataset(category1, category2, 0.1)
-    X_train = pre_process_images(X_train)
+    # Simple test on one-hot encoding
+    Y = np.zeros((1, 1), dtype=int)
+    Y[0, 0] = 3
+    Y = one_hot_encode(Y, 10)
+    assert Y[0, 3] == 1 and Y.sum() == 1, \
+        f"Expected the vector to be [0,0,0,1,0,0,0,0,0,0], but got {Y}"
+
+    X_train, Y_train, *_ = utils.load_full_mnist(0.1)
+    mu = np.mean(X_train)
+    sigma = np.std(X_train)
+    X_train = pre_process_images(X_train, mu, sigma)
+    Y_train = one_hot_encode(Y_train, 10)
     assert X_train.shape[1] == 785,\
         f"Expected X_train to have 785 elements per image. Shape was: {X_train.shape}"
 
-    # Simple test for forward pass. Note that this does not cover all errors!
-    model = BinaryModel(0.0, X_train.shape[1])
-    logits = model.forward(X_train)
-    np.testing.assert_almost_equal(
-        logits.mean(), .5,
-        err_msg="Since the weights are all 0's, the sigmoid activation should be 0.5")
+    neurons_per_layer = [64, 10]
+    use_improved_sigmoid = False
+    use_improved_weight_init = False
+    model = SoftmaxModel(
+        neurons_per_layer, use_improved_sigmoid, use_improved_weight_init)
 
     # Gradient approximation check for 100 images
     X_train = X_train[:100]
     Y_train = Y_train[:100]
-    for i in range(2):
-        gradient_approximation_test(model, X_train, Y_train)
-        model.w = np.random.randn(*model.w.shape)
+    for layer_idx, w in enumerate(model.ws):
+        model.ws[layer_idx] = np.random.uniform(-1, 1, size=w.shape)
+
+    gradient_approximation_test(model, X_train, Y_train)
