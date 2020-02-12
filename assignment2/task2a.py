@@ -121,11 +121,11 @@ class SoftmaxModel:
 
         # Output layer backpropagation
         delta_k = outputs - targets
-        dC_dw2 = np.dot(np.transpose(ys[1]),delta_k) / len(X)  # test klappt nur mit dem / len(X) aber stimmt das?
+        dC_dw2 = np.dot(np.transpose(ys[1]), delta_k) / len(X)
 
         # Hidden layer backpropagation
-        delta_j =  sigmoid_prime(zs[0]) * np.dot(delta_k, np.transpose(self.ws[1]))
-        dC_dw1 = np.dot(np.transpose(X), delta_j) / len(X) # test klappt nur mit dem / len(X) aber stimmt das?
+        delta_j = sigmoid_prime(zs[0]) * np.dot(delta_k, np.transpose(self.ws[1]))
+        dC_dw1 = np.dot(np.transpose(X), delta_j) / len(X)
 
         self.grads.append(dC_dw1)
         self.grads.append(dC_dw2)
