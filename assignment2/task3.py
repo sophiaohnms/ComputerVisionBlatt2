@@ -48,10 +48,13 @@ def train(
 
     global_step = 0
     for epoch in range(num_epochs):
+
+        # Task 3 a: shuffeling
         indices = np.arange(X_train.shape[0])
         np.random.shuffle(indices)
         X_train = X_train[indices]
         Y_train = Y_train[indices]
+
         for step in range(num_batches_per_epoch):
             start = step * batch_size
             end = start + batch_size
