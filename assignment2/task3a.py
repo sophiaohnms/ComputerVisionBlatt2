@@ -12,6 +12,14 @@ def sigmoid_prime(z):
     """Derivative of the sigmoid function."""
     return sigmoid(z)*(1-sigmoid(z))
 
+def improved_sigmoid(z):
+    """Sigmoid function using the hyperbolic tangens"""
+    return 1.7159 * np.tanh(2/3*z)
+
+def improved_sigmoid_prime(z):
+    """Derivative of sigmoid function using the hyperbolic tangens"""
+    return 1.7159 * (1 - np.tanh(2/3 * z)) * 2 / 3
+
 def pre_process_images(X: np.ndarray, mu, sigma):
     """
     Args:
@@ -80,7 +88,7 @@ class SoftmaxModel:
             prev = size
         self.grads = [None for i in range(len(self.ws))]
 
-    def forward(self, X: np.ndarray) -> np.ndarray:
+    def forward(self, X: np.ndarray, use_improved_sigmoid: bool) -> np.ndarray:
         """
         Args:
             X: images of shape [batch size, 785]
@@ -97,7 +105,10 @@ class SoftmaxModel:
             z = y.dot(w)
             zs.append(z)
             if i == 1:
-                y = sigmoid(z)
+                if use_improved_sigmoid is True:
+                    y = improved_sigmoid(z)
+                else:
+                    y = sigmoid(z)
             else:
                 y = np.exp(z) / np.sum(np.exp(z), axis=1, keepdims=True)
             ys.append(y)
@@ -106,7 +117,7 @@ class SoftmaxModel:
         return y
 
     def backward(self, X: np.ndarray, outputs: np.ndarray,
-                 targets: np.ndarray) -> None:
+                 targets: np.ndarray, use_improved_sigmoid: bool) -> None:
         """
         Args:
             X: images of shape [batch size, 785]
@@ -124,7 +135,10 @@ class SoftmaxModel:
         dC_dw2 = np.dot(np.transpose(ys[1]), delta_k) / len(X)
 
         # Hidden layer backpropagation
-        delta_j = sigmoid_prime(zs[0]) * np.dot(delta_k, np.transpose(self.ws[1]))
+        if use_improved_sigmoid is True:
+            delta_j = improved_sigmoid_prime(zs[0]) * np.dot(delta_k, np.transpose(self.ws[1]))
+        else:
+            delta_j = sigmoid_prime(zs[0]) * np.dot(delta_k, np.transpose(self.ws[1]))
         dC_dw1 = np.dot(np.transpose(X), delta_j) / len(X)
 
         self.grads.append(dC_dw1)

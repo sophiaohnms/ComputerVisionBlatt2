@@ -16,7 +16,7 @@ def calculate_accuracy(X: np.ndarray, targets: np.ndarray,
     Returns:
         Accuracy (float)
     """
-    output = model.forward(X)
+    output = model.forward(X, use_improved_sigmoid)
     result_output = np.argmax(output, axis=1)
     target = np.argmax(targets, axis=1)
     correct = target == result_output
@@ -50,10 +50,11 @@ def train(
     for epoch in range(num_epochs):
 
         # Task 3 a: shuffeling
-        indices = np.arange(X_train.shape[0])
-        np.random.shuffle(indices)
-        X_train = X_train[indices]
-        Y_train = Y_train[indices]
+        if use_shuffle is True:
+            indices = np.arange(X_train.shape[0])
+            np.random.shuffle(indices)
+            X_train = X_train[indices]
+            Y_train = Y_train[indices]
 
         for step in range(num_batches_per_epoch):
             start = step * batch_size
@@ -61,8 +62,8 @@ def train(
             X_batch, Y_batch = X_train[start:end], Y_train[start:end]
 
             # forward and backward pass
-            output = model.forward(X_batch)
-            model.backward(X_batch, output, Y_batch)
+            output = model.forward(X_batch, use_improved_sigmoid)
+            model.backward(X_batch, output, Y_batch, use_improved_sigmoid)
 
             # update weights
             model.ws[0] = model.ws[0] - learning_rate * model.grads[0]
@@ -71,11 +72,11 @@ def train(
             # Track train / validation loss / accuracy
             # every time we progress 20% through the dataset
             if (global_step % num_steps_per_val) == 0:
-                output_val = model.forward(X_val)
+                output_val = model.forward(X_val, use_improved_sigmoid)
                 _val_loss = cross_entropy_loss(Y_val, output_val)
                 val_loss[global_step] = _val_loss
 
-                output_train = model.forward(X_train)
+                output_train = model.forward(X_train, use_improved_sigmoid)
                 _train_loss = cross_entropy_loss(Y_train, output_train)
                 train_loss[global_step] = _train_loss
 
@@ -132,11 +133,11 @@ if __name__ == "__main__":
         momentum_gamma=momentum_gamma)
 
     print("Final Train Cross Entropy Loss:",
-          cross_entropy_loss(Y_train, model.forward(X_train)))
+          cross_entropy_loss(Y_train, model.forward(X_train, use_improved_sigmoid)))
     print("Final Validation Cross Entropy Loss:",
-          cross_entropy_loss(Y_val, model.forward(X_val)))
+          cross_entropy_loss(Y_val, model.forward(X_val, use_improved_sigmoid)))
     print("Final Test Cross Entropy Loss:",
-          cross_entropy_loss(Y_test, model.forward(X_test)))
+          cross_entropy_loss(Y_test, model.forward(X_test, use_improved_sigmoid)))
 
     print("Final Train accuracy:",
           calculate_accuracy(X_train, Y_train, model))

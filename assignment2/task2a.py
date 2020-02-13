@@ -121,11 +121,13 @@ class SoftmaxModel:
 
         # Output layer backpropagation
         delta_k = outputs - targets
+        print(delta_k.shape, ys[1].shape)
         dC_dw2 = np.dot(np.transpose(ys[1]), delta_k) / len(X)
 
         # Hidden layer backpropagation
         delta_j = sigmoid_prime(zs[0]) * np.dot(delta_k, np.transpose(self.ws[1]))
         dC_dw1 = np.dot(np.transpose(X), delta_j) / len(X)
+        print(zs[0].shape, self.ws[1].shape, delta_j.shape, X.shape, dC_dw1.shape, dC_dw2.shape)
 
         self.grads.append(dC_dw1)
         self.grads.append(dC_dw2)
