@@ -112,8 +112,6 @@ def zero_grad(self) -> None:
         self.grads = [None for i in range(len(self.ws))]
 
 
-
-
 if __name__ == "__main__":
     # Simple test on one-hot encoding
     Y = np.zeros((1, 1), dtype=int)
