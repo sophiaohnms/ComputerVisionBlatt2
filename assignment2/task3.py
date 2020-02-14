@@ -67,6 +67,7 @@ def train(
 
             # update weights
             if use_momentum is True:
+                learning_rate = 0.02
                 model.ws[0] = model.ws[0] - learning_rate * model.grads[0] - momentum_gamma * learning_rate * model.old_grads[0]
                 model.ws[1] = model.ws[1] - learning_rate * model.grads[1] - momentum_gamma * learning_rate * model.old_grads[1]
             else:
