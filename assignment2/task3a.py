@@ -1,6 +1,7 @@
 import numpy as np
 import utils
 import typing
+import copy
 np.random.seed(1)
 
 def sigmoid(z):
@@ -83,12 +84,16 @@ class SoftmaxModel:
         for size in self.neurons_per_layer:
             w_shape = (prev, size)
             print("Initializing weight to shape:", w_shape)
-            w = np.random.uniform(low=-1, high=1, size=w_shape )
+            if use_improved_weight_init is True:
+                w = np.random.normal(0, 1/np.sqrt(prev), size=w_shape)
+            else:
+                w = np.random.uniform(low=-1, high=1, size=w_shape )
             self.ws.append(w)
             prev = size
         self.grads = [None for i in range(len(self.ws))]
+        self.old_grads = [None for i in range(len(self.ws))]
 
-    def forward(self, X: np.ndarray, use_improved_sigmoid: bool) -> np.ndarray:
+    def forward(self, X: np.ndarray) -> np.ndarray:
         """
         Args:
             X: images of shape [batch size, 785]
@@ -105,7 +110,7 @@ class SoftmaxModel:
             z = y.dot(w)
             zs.append(z)
             if i == 1:
-                if use_improved_sigmoid is True:
+                if self.use_improved_sigmoid is True:
                     y = improved_sigmoid(z)
                 else:
                     y = sigmoid(z)
@@ -117,7 +122,7 @@ class SoftmaxModel:
         return y
 
     def backward(self, X: np.ndarray, outputs: np.ndarray,
-                 targets: np.ndarray, use_improved_sigmoid: bool) -> None:
+                 targets: np.ndarray) -> None:
         """
         Args:
             X: images of shape [batch size, 785]
@@ -128,6 +133,7 @@ class SoftmaxModel:
             f"Output shape: {outputs.shape}, targets: {targets.shape}"
         # A list of gradients.
         # For example, self.grads[0] will be the gradient for the first hidden layer
+        self.old_grads = copy.deepcopy(self.grads)
         self.grads = []
 
         # Output layer backpropagation
@@ -135,7 +141,7 @@ class SoftmaxModel:
         dC_dw2 = np.dot(np.transpose(ys[1]), delta_k) / len(X)
 
         # Hidden layer backpropagation
-        if use_improved_sigmoid is True:
+        if self.use_improved_sigmoid is True:
             delta_j = improved_sigmoid_prime(zs[0]) * np.dot(delta_k, np.transpose(self.ws[1]))
         else:
             delta_j = sigmoid_prime(zs[0]) * np.dot(delta_k, np.transpose(self.ws[1]))

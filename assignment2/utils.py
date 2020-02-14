@@ -44,7 +44,7 @@ def load_full_mnist(val_percentage: float):
     return X_train, Y_train, X_val, Y_val, X_test, Y_test
 
 
-def plot_loss(loss_dict: dict, label: str = None, fmt="-"):
+def plot_loss(loss_dict: dict, label: str = None, fmt="-", ax = None, c = None, ls = None):
     """
     Args:
         loss_dict: a dictionary where keys are the global step and values are the given loss / accuracy
@@ -52,4 +52,7 @@ def plot_loss(loss_dict: dict, label: str = None, fmt="-"):
     """
     global_steps = list(loss_dict.keys())
     loss = list(loss_dict.values())
-    plt.plot(global_steps, loss, fmt, label=label)
+    if ax is None:
+        plt.plot(global_steps, loss, fmt, label=label)
+    else:
+        ax.plot(global_steps, loss, fmt, label=label, color = c, linestyle = ls)
