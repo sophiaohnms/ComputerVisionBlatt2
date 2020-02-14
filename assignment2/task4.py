@@ -1,8 +1,8 @@
 import numpy as np
 import utils
+from timeit import default_timer
 import matplotlib.pyplot as plt
 import typing
-from timeit import default_timer
 from task3a import cross_entropy_loss, SoftmaxModel, one_hot_encode, pre_process_images
 np.random.seed(0)
 
@@ -101,10 +101,10 @@ if __name__ == "__main__":
     num_epochs = 20
     learning_rate = .1
     batch_size = 32
-    neurons_per_layer = [64, 10]
+    neurons_per_layer = [128, 10]
     momentum_gamma = .9  # Task 3 hyperparameter
 
-    bool_vector = np.array([False, False, False, False, False])
+    bool_vector = np.array([True, True, True, True, True])
     names = ["", "with shuffeling", "with improved sigmoid", "with improved weights", "with momentum"]
     color = ["red", "blue", "green", "orange", "purple"]
 
@@ -135,57 +135,55 @@ if __name__ == "__main__":
     X_test = pre_process_images(X_test, mu, sigma)
     Y_test = one_hot_encode(Y_test, 10)
 
+    start = default_timer()
 
+    # Settings for task 3. Keep all to false for task 2.
+    use_shuffle = bool_vector[0]
+    use_improved_sigmoid = bool_vector[1]
+    use_improved_weight_init = bool_vector[2]
+    use_momentum = bool_vector[3]
 
-    for i in range(5):
-        start = default_timer()
+    model = SoftmaxModel(
+        neurons_per_layer,
+        use_improved_sigmoid,
+        use_improved_weight_init)
+    model, train_loss, val_loss, train_accuracy, val_accuracy = train(
+        model,
+        [X_train, Y_train, X_val, Y_val, X_test, Y_test],
+        num_epochs=num_epochs,
+        learning_rate=learning_rate,
+        batch_size=batch_size,
+        use_shuffle=use_shuffle,
+        use_momentum=use_momentum,
+        momentum_gamma=momentum_gamma)
 
-        # Settings for task 3. Keep all to false for task 2.
-        use_shuffle = bool_vector[0]
-        use_improved_sigmoid = bool_vector[1]
-        use_improved_weight_init = bool_vector[2]
-        use_momentum = bool_vector[3]
+    print(': Elapsed Time: %.2f' % (default_timer() - start))
 
-        model = SoftmaxModel(
-            neurons_per_layer,
-            use_improved_sigmoid,
-            use_improved_weight_init)
-        model, train_loss, val_loss, train_accuracy, val_accuracy = train(
-            model,
-            [X_train, Y_train, X_val, Y_val, X_test, Y_test],
-            num_epochs=num_epochs,
-            learning_rate=learning_rate,
-            batch_size=batch_size,
-            use_shuffle=use_shuffle,
-            use_momentum=use_momentum,
-            momentum_gamma=momentum_gamma)
-        print(': Elapsed Time: %.2f' % (default_timer() - start))
+    print("Final Train Cross Entropy Loss:",
+          cross_entropy_loss(Y_train, model.forward(X_train)))
+    print("Final Validation Cross Entropy Loss:",
+          cross_entropy_loss(Y_val, model.forward(X_val)))
+    print("Final Test Cross Entropy Loss:",
+          cross_entropy_loss(Y_test, model.forward(X_test)))
 
-        print("Final Train Cross Entropy Loss:",
-              cross_entropy_loss(Y_train, model.forward(X_train)))
-        print("Final Validation Cross Entropy Loss:",
-              cross_entropy_loss(Y_val, model.forward(X_val)))
-        print("Final Test Cross Entropy Loss:",
-              cross_entropy_loss(Y_test, model.forward(X_test)))
+    print("Final Train accuracy:",
+          calculate_accuracy(X_train, Y_train, model))
+    print("Final Validation accuracy:",
+          calculate_accuracy(X_val, Y_val, model))
+    print("Final Test accuracy:",
+          calculate_accuracy(X_test, Y_test, model))
 
-        print("Final Train accuracy:",
-              calculate_accuracy(X_train, Y_train, model))
-        print("Final Validation accuracy:",
-              calculate_accuracy(X_val, Y_val, model))
-        print("Final Test accuracy:",
-              calculate_accuracy(X_test, Y_test, model))
+    utils.plot_loss(train_loss, "Training Loss" + " " + 'final network', ax=ax1, c=color[0])
+    utils.plot_loss(val_loss, "Validation Loss" + " " + 'final network', ax=ax1, c=color[1])
 
-        utils.plot_loss(train_loss, "Training Loss" + " " + names[i], ax = ax1, c = color[i], ls = "-")
-        utils.plot_loss(val_loss, "Validation Loss" + " " + names[i], ax = ax1, c = color[i], ls = "--")
+    utils.plot_loss(train_accuracy, "Training Accuracy" + " " + 'final network', ax=ax2, c=color[0])
+    utils.plot_loss(val_accuracy, "Validation Accuracy" + " " + 'final network', ax=ax2, c=color[1])
 
-        utils.plot_loss(train_accuracy, "Training Accuracy"  + " " + names[i], ax = ax2, c = color[i], ls = "-")
-        utils.plot_loss(val_accuracy, "Validation Accuracy" + " " + names[i], ax = ax2, c = color[i], ls = "--")
+    print(use_shuffle, use_improved_sigmoid, use_improved_weight_init, use_momentum)
 
-        print(use_shuffle, use_improved_sigmoid, use_improved_weight_init, use_momentum)
-        bool_vector[i] = True
 
 
     ax1.legend()
     ax2.legend()
-    fig.savefig("softmax_train_graph_task3_alloff.png")
+    fig.savefig("softmax_train_graph_task4_128.png")
     fig.show()
