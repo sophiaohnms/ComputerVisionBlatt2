@@ -19,7 +19,7 @@ def improved_sigmoid(z):
 
 def improved_sigmoid_prime(z):
     """Derivative of sigmoid function using the hyperbolic tangens"""
-    return 1.7159 * (1 - np.tanh(2/3 * z)) * 2 / 3
+    return 1.7159 * (1 - np.tanh(2/3 * z)**2) * 2 / 3
 
 def pre_process_images(X: np.ndarray, mu, sigma):
     """
